@@ -177,6 +177,14 @@ def _reply_hint(item, buttons) -> str:
     if not buttons:
         return "(Open the app to respond.)"
     if getattr(item, "kind", "") == KIND_APPROVAL:
+        # `always` earns the owning routine a standing grant, so the same question
+        # stops arriving on every run. Offered only where there is a routine to grant
+        # it on — in a plain session it resolves as a one-off and would read as a lie.
+        if (getattr(item, "data", None) or {}).get("task_id"):
+            return (
+                "Reply `approve`, `always` (stop asking for this routine), or `deny` "
+                "— keep the tag below."
+            )
         return "Reply `approve` or `deny`, keeping the tag below."
     labels = ", ".join(b.label for b in buttons)
     return f"Reply with one of: {labels} — keeping the tag below."
@@ -4595,6 +4603,10 @@ class SessionManager:
             item = self.inbox.get(item_id)
             if item is None:
                 return False
+            if resolution == "always_task" and item.kind != KIND_APPROVAL:
+                # "always" is meaningless as an answer to a question — take it as a
+                # plain yes rather than storing it as the answer text.
+                resolution = "allow"
             if (
                 getattr(event.source, "platform", "") == "slack"
                 and item.kind in {"approval", "directory", "plan"}

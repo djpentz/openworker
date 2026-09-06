@@ -74,6 +74,37 @@ def test_option_question_without_buttons_names_the_options(tmp_path):
     assert "Blue" in text and "Green" in text
 
 
+def test_routine_card_offers_always(tmp_path):
+    """A scheduled run's card is the one place "always" does something: it earns the
+    routine a standing grant, so the same question stops arriving every morning."""
+    manager = _manager(tmp_path)
+    manager.gateway = GatewayStub(interactive=False)
+    item = manager.inbox.add_approval(
+        "__run__r1",
+        "Run `web_search`?",
+        body="query: anything",
+        data={"task_id": "task-1", "task_title": "Daily watch"},
+    )
+
+    asyncio.run(manager.mirror_inbox_item(item))
+
+    (text,) = manager.gateway.texts
+    assert "always" in text
+    assert f"[ow:{item.id}]" in text
+
+
+def test_plain_session_card_does_not_offer_always(tmp_path):
+    """No routine to grant it on — offering it would resolve as a one-off and lie."""
+    manager = _manager(tmp_path)
+    manager.gateway = GatewayStub(interactive=False)
+    item = manager.inbox.add_approval("s1", "Run `web_fetch`?", body="url: https://x")
+
+    asyncio.run(manager.mirror_inbox_item(item))
+
+    (text,) = manager.gateway.texts
+    assert "always" not in text.lower()
+
+
 def test_buttons_still_used_where_the_platform_draws_them(tmp_path):
     manager = _manager(tmp_path)
     manager.gateway = GatewayStub(interactive=True)
